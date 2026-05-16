@@ -1,0 +1,114 @@
+version: '3.8'
+
+# =====================================================
+# homelab-core - Base Docker Compose
+# NPM + MariaDB + phpMyAdmin + wg-easy (WireGuard Easy)
+#
+# This is a secure, lightweight starting point.
+# - Uses two networks for isolation (proxy + backend)
+# - Named networks so new projects can easily join "homelab-proxy"
+# - All sensitive values loaded from .env (see .env.example)
+# - Comments in ALL CAPS highlight what YOU MUST CHANGE
+# =====================================================
+
+services:
+
+  # -------------------------------------------------
+  # Nginx Proxy Manager (Reverse Proxy + SSL)
+  # Access initial admin UI at http://YOUR-SERVER-IP:81
+  # Then create proxy hosts + Access Lists for everything else
+  # -------------------------------------------------
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - "80:80"      # HTTP - let NPM handle redirects to HTTPS
+      - "443:443"    # HTTPS - main entry point
+      - "81:81"      # NPM Admin UI (temporary - proxy it later for security)
+    volumes:
+      - ./data/npm:/data
+      - ./data/npm/letsencrypt:/etc/letsencrypt
+    networks:
+      - homelab-proxy
+
+  # -------------------------------------------------
+  # MariaDB Database Server
+  # NEVER expose port 3306 publicly. Only internal access.
+  # -------------------------------------------------
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      # !!! CHANGE THIS IN .env - USE A LONG, STRONG, UNIQUE PASSWORD !!!
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      # Optional: pre-create a database (uncomment and set in .env if desired)
+      # MYSQL_DATABASE: ${DB_NAME:-homelab}
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+    networks:
+      - homelab-backend
+
+  # -------------------------------------------------
+  # phpMyAdmin - Web UI for MariaDB
+  # Access ONLY through NPM proxy (recommended) with Access List
+  # -------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      # PMA_ARBITRARY: 1   # Uncomment only if you need to connect to arbitrary hosts
+    depends_on:
+      - mariadb
+    networks:
+      - homelab-backend
+      - homelab-proxy   # So NPM can reach it by container name
+
+  # -------------------------------------------------
+  # wg-easy - WireGuard VPN + Web UI
+  # VPN port: 51820/udp (must be forwarded on your router)
+  # Web UI will be protected by PASSWORD + later NPM Access List
+  # -------------------------------------------------
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy:latest
+    container_name: wg-easy
+    restart: unless-stopped
+    environment:
+      # !!! SET TO YOUR PUBLIC DOMAIN OR STATIC PUBLIC IP !!!
+      - WG_HOST=${WG_HOST}
+      # !!! CHANGE THIS IN .env - STRONG PASSWORD FOR THE WG-EASY WEB UI !!!
+      - PASSWORD=${WG_PASSWORD}
+      - WG_PORT=51820
+      # Optional: customize client IP range (default is usually 10.8.0.x)
+      # - WG_DEFAULT_ADDRESS=10.8.0.x
+      # Add other wg-easy env vars as needed (see official docs)
+    ports:
+      - "51820:51820/udp"   # WireGuard VPN traffic - REQUIRED
+      # "51821:51821"       # Web UI port - map if you want direct IP access initially
+    volumes:
+      - ./data/wg-easy:/etc/wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    networks:
+      - homelab-proxy
+
+# -------------------------------------------------
+# Networks
+# homelab-proxy  → Join this from other compose files for easy NPM proxying
+# homelab-backend → Database isolation
+# -------------------------------------------------
+networks:
+  homelab-proxy:
+    name: homelab-proxy
+    driver: bridge
+  homelab-backend:
+    name: homelab-backend
+    driver: bridge
