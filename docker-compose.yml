@@ -1,7 +1,8 @@
 version: '3.8'
 
 # =====================================================
-# TechDesk Homelab Core - Folder-based landing page (403 FIXED)
+# TechDesk Homelab Core - FINAL 403 FIX
+# Folder-based landing page (panel.techdeskpro.com/public)
 # Ready for GitHub + Hostinger Docker Manager
 # =====================================================
 
@@ -68,18 +69,19 @@ services:
     networks:
       - homelab-proxy
 
-  # ✅ 403 FIXED: Landing page with auto-fallback + permission fix
+  # ✅ FINAL FIX: Landing page (runs as root to eliminate 403 forever)
   landing:
     image: nginx:alpine
     container_name: landing
     restart: unless-stopped
+    user: "0"   # ← This is the key fix (safe for static files)
     volumes:
-      - ./panel.techdeskpro.com/public:/usr/share/nginx/html:ro
+      - ./panel.techdeskpro.com/public:/usr/share/nginx/html
     command:
       - sh
       - -c
       - |
-        # Create default page if folder is empty/missing on first deploy
+        # Create default page if folder is empty or missing
         if [ ! -f /usr/share/nginx/html/index.html ]; then
           cat > /usr/share/nginx/html/index.html << 'EOF'
         <!DOCTYPE html>
@@ -108,9 +110,8 @@ services:
         </html>
         EOF
         fi
-        # Fix permissions so nginx user can always read your files
-        chown -R 101:101 /usr/share/nginx/html 2>/dev/null || true
-        chmod -R 755 /usr/share/nginx/html 2>/dev/null || true
+        # Ensure permissions are correct
+        chmod -R 755 /usr/share/nginx/html
         exec nginx -g 'daemon off;'
     networks:
       - homelab-proxy
