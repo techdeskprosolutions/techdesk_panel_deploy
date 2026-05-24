@@ -1,5 +1,33 @@
+# TechDesk Homelab Core
+
+Modern, secure, one-click homelab stack built for **Hostinger Docker Manager + GitHub**.
+
+### Included Services
+- **Nginx Proxy Manager** – Reverse proxy + free SSL
+- **MariaDB** – Production database
+- **phpMyAdmin** – Database web UI
+- **WireGuard VPN** (`wg-easy`) – Secure remote access
+- **Portainer** – Full Docker management (containers, ports, logs, stats)
+- **Landing Dashboard** (`panel.techdeskpro.com`) – Beautiful homepage with one-click links
+
+All domains are pre-planned:
+- `panel.techdeskpro.com` → Dashboard
+- `npm.panel.techdeskpro.com` → NPM Admin
+- `db.panel.techdeskpro.com` → phpMyAdmin
+- `vpn.panel.techdeskpro.com` → WireGuard VPN
+- `portainer.panel.techdeskpro.com` → Portainer
 
 ---
+
+### Folder Structure
+
+techdesk-homelab-core/
+├── docker-compose.yml
+├── panel.techdeskpro.com/
+│   └── public/
+│       └── index.html          ← Beautiful dashboard (editable)
+├── .env.example
+└── README.md---
 
 ### Quick Deploy on Hostinger
 
